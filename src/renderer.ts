@@ -16,14 +16,16 @@ const fields = {
   last: { x: 600, y: 645, size: 40 },
 };
 
-const valueRegions = [
-  [45, 225, 635, 345],
-  [925, 265, 1460, 350],
-  [45, 470, 350, 545],
-  [575, 470, 950, 545],
-  [1125, 470, 1490, 545],
-  [45, 600, 350, 675],
-  [575, 600, 950, 675],
+// Opaque cleanup areas remove the original sample values before new text is drawn.
+// These colors match the dark background of the supplied template.
+const cleanupAreas = [
+  { x: 45, y: 225, width: 635, height: 125, fill: '#07111c' },
+  { x: 925, y: 265, width: 470, height: 95, fill: '#071d1d' },
+  { x: 45, y: 470, width: 320, height: 80, fill: '#07111c' },
+  { x: 575, y: 470, width: 375, height: 80, fill: '#07111c' },
+  { x: 1125, y: 470, width: 365, height: 80, fill: '#07111c' },
+  { x: 45, y: 600, width: 320, height: 80, fill: '#07111c' },
+  { x: 575, y: 600, width: 375, height: 80, fill: '#07111c' },
 ];
 
 export async function renderPnl(templatePath: string, data: any) {
@@ -32,31 +34,24 @@ export async function renderPnl(templatePath: string, data: any) {
   const pnlColor = positive ? '#00e5a0' : '#ff5577';
   const pnlSign = positive ? '+' : '-';
 
-  const maskSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="${WIDTH}" height="${HEIGHT}" fill="black" />
-    ${valueRegions.map(([x1, y1, x2, y2]) => `<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" fill="white" />`).join('')}
+  const cleanupSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+    ${cleanupAreas.map((area) => `<rect x="${area.x}" y="${area.y}" width="${area.width}" height="${area.height}" fill="${area.fill}" />`).join('')}
   </svg>`;
 
-  const mask = await sharp(Buffer.from(maskSvg)).png().toBuffer();
-  const blurred = await sharp(base).blur(18).png().toBuffer();
-  const blurredMasked = await sharp(blurred)
-    .composite([{ input: mask, blend: 'dest-in' }])
-    .png()
-    .toBuffer();
   const cleaned = await sharp(base)
-    .composite([{ input: blurredMasked, blend: 'over' }])
+    .composite([{ input: Buffer.from(cleanupSvg), top: 0, left: 0 }])
     .png()
     .toBuffer();
 
   const svg = `<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
     <style>
-      .white { font-family: 'DejaVu Sans', sans-serif; font-weight: 700; fill: #f5f7ff; }
-      .pnl { font-family: 'DejaVu Sans', sans-serif; font-weight: 700; fill: ${pnlColor}; }
+      .white { font-family: Arial, sans-serif; font-weight: 700; fill: #f5f7ff; }
+      .pnl { font-family: Arial, sans-serif; font-weight: 700; fill: ${pnlColor}; }
     </style>
     <text class="white" x="${fields.coin.x}" y="${fields.coin.y}" font-size="${fields.coin.size}">${escape(String(data.coin))}</text>
     <text class="white" x="${fields.leverage.x}" y="${fields.leverage.y}" font-size="${fields.leverage.size}">Cross ${escape(String(data.leverage))}X</text>
     <text class="pnl" x="${fields.pnlAmount.x}" y="${fields.pnlAmount.y}" font-size="${fields.pnlAmount.size}">${pnlSign}${Math.abs(Number(data.pnlAmount)).toFixed(4)}</text>
-    <text class="pnl" x="${fields.pnlPercent.x}" y="${fields.pnlPercent.y}" font-size="${fields.pnlPercent.size}">${data.pnlPercent >= 0 ? '+' : '-'}${Math.abs(Number(data.pnlPercent)).toFixed(2)}%</text>
+    <text class="pnl" x="${fields.pnlPercent.x}" y="${fields.pnlPercent.y}" font-size="${fields.pnlPercent.size}">${positive ? '+' : '-'}${Math.abs(Number(data.pnlPercent)).toFixed(2)}%</text>
     <text class="white" x="${fields.size.x}" y="${fields.size.y}" font-size="${fields.size.size}">${Number(data.size).toFixed(2)}</text>
     <text class="white" x="${fields.margin.x}" y="${fields.margin.y}" font-size="${fields.margin.size}">${Number(data.margin).toFixed(4)}</text>
     <text class="white" x="${fields.marginRatio.x}" y="${fields.marginRatio.y}" font-size="${fields.marginRatio.size}">${Number(data.marginRatio).toFixed(2)}%</text>
