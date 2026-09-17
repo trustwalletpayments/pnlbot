@@ -1,22 +1,46 @@
 import sharp from 'sharp';
 import fs from 'node:fs/promises';
 
-// Replace these coordinates after uploading your real PNL sample.
+// Coordinates are aligned to the supplied 1536x1024 screenshot.
+// The screenshot must be uploaded to assets/pnl-template.png.
 const fields = {
-  coin: { x: 80, y: 70, size: 32 }, side: { x: 80, y: 115, size: 24 }, leverage: { x: 220, y: 115, size: 24 },
-  entry: { x: 80, y: 170, size: 22 }, last: { x: 80, y: 215, size: 22 }, pnlPercent: { x: 80, y: 270, size: 30 }, pnlAmount: { x: 80, y: 325, size: 30 }
+  coin: { x: 175, y: 113, size: 54 },
+  leverage: { x: 752, y: 113, size: 40 },
+  pnlAmount: { x: 61, y: 316, size: 96 },
+  pnlPercent: { x: 955, y: 316, size: 66 },
+  margin: { x: 600, y: 511, size: 40 },
+  entry: { x: 61, y: 645, size: 40 },
+  last: { x: 600, y: 645, size: 40 },
 };
 
 export async function renderPnl(templatePath: string, data: any) {
   const base = await fs.readFile(templatePath);
-  const svg = `<svg width="1200" height="700" xmlns="http://www.w3.org/2000/svg"><style>text{font-family:Arial,sans-serif;fill:white}</style>
-    <text x="${fields.coin.x}" y="${fields.coin.y}" font-size="${fields.coin.size}">${escape(data.coin)}</text>
-    <text x="${fields.side.x}" y="${fields.side.y}" font-size="${fields.side.size}">${data.side}</text>
-    <text x="${fields.leverage.x}" y="${fields.leverage.y}" font-size="${fields.leverage.size}">${data.leverage}x</text>
-    <text x="${fields.entry.x}" y="${fields.entry.y}" font-size="${fields.entry.size}">${data.entry}</text>
-    <text x="${fields.last.x}" y="${fields.last.y}" font-size="${fields.last.size}">${data.last}</text>
-    <text x="${fields.pnlPercent.x}" y="${fields.pnlPercent.y}" font-size="${fields.pnlPercent.size}">${data.pnlPercent.toFixed(1)}%</text>
-    <text x="${fields.pnlAmount.x}" y="${fields.pnlAmount.y}" font-size="${fields.pnlAmount.size}">${data.pnlAmount >= 0 ? '+' : '-'}$${Math.abs(data.pnlAmount).toFixed(2)}</text></svg>`;
-  return sharp(base).composite([{ input: Buffer.from(svg), top: 0, left: 0 }]).png().toBuffer();
+  const svg = `<svg width="1536" height="1024" xmlns="http://www.w3.org/2000/svg">
+    <style>
+      .white { font-family: Arial, sans-serif; font-weight: 700; fill: #f5f7ff; }
+      .green { font-family: Arial, sans-serif; font-weight: 700; fill: #00e5a0; }
+    </style>
+    <text class="white" x="${fields.coin.x}" y="${fields.coin.y}" font-size="${fields.coin.size}">${escape(String(data.coin))}</text>
+    <text class="white" x="${fields.leverage.x}" y="${fields.leverage.y}" font-size="${fields.leverage.size}">Cross ${escape(String(data.leverage))}X</text>
+    <text class="green" x="${fields.pnlAmount.x}" y="${fields.pnlAmount.y}" font-size="${fields.pnlAmount.size}">${data.pnlAmount >= 0 ? '+' : '-'}${Math.abs(data.pnlAmount).toFixed(4)}</text>
+    <text class="green" x="${fields.pnlPercent.x}" y="${fields.pnlPercent.y}" font-size="${fields.pnlPercent.size}">${data.pnlPercent >= 0 ? '+' : '-'}${Math.abs(data.pnlPercent).toFixed(2)}%</text>
+    <text class="white" x="${fields.margin.x}" y="${fields.margin.y}" font-size="${fields.margin.size}">${Number(data.margin).toFixed(4)}</text>
+    <text class="white" x="${fields.entry.x}" y="${fields.entry.y}" font-size="${fields.entry.size}">${escape(String(data.entry))}</text>
+    <text class="white" x="${fields.last.x}" y="${fields.last.y}" font-size="${fields.last.size}">${escape(String(data.last))}</text>
+  </svg>`;
+
+  return sharp(base)
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .png()
+    .toBuffer();
 }
-function escape(value: string) { return value.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&apos;' }[c]!)); }
+
+function escape(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&apos;',
+  }[character]!));
+}
