@@ -5,7 +5,7 @@ import { renderPnl } from './renderer.js';
 
 const token = process.env.BOT_TOKEN;
 const adminId = process.env.ADMIN_TELEGRAM_ID;
-const defaultMargin = Number(process.env.DEFAULT_MARGIN ?? 500);
+const defaultMargin = Number(process.env.DEFAULT_MARGIN ?? 0);
 const templatePath = process.env.TEMPLATE_PATH ?? './assets/pnl-template.png';
 
 if (!token) throw new Error('BOT_TOKEN is missing');
@@ -15,56 +15,64 @@ function isAdmin(ctx: any) {
   return !adminId || String(ctx.from?.id) === String(adminId);
 }
 
-const helpText = [
-  'PNL Bot ready.',
-  '',
-  'One-line format:',
-  '/edit COIN LONG 10x ENTRY LAST [MARGIN]',
-  '',
-  'Example:',
-  '/edit BRUSDT LONG 10x 0.21867 0.65518 500',
-  '',
-  'You can also send labeled lines:',
-  'Coin: BRUSDT',
-  'Side: LONG',
-  'Leverage: 10x',
-  'Entry: 0.21867',
-  'Last: 0.65518',
-  'Margin: 500',
-].join('\n');
-
-bot.start((ctx) => ctx.reply(helpText));
-bot.command('help', (ctx) => ctx.reply(helpText));
+bot.start((ctx) => ctx.reply(
+  'PNL Bot ready.\n\n' +
+  'Use: /edit COIN LONG 10x ENTRY LAST [MARGIN]\n' +
+  'Example: /edit BRUSDT LONG 10x 0.21867 0.65518 500\n\n' +
+  'If margin is omitted, the bot automatically chooses a margin between $100 and $500.'
+));
 
 bot.command('edit', async (ctx) => {
   if (!isAdmin(ctx)) return ctx.reply('Unauthorized.');
 
   try {
     const trade = parseEditCommand(ctx.message.text);
-    const effectiveTrade = { ...trade, margin: trade.margin ?? defaultMargin };
-    const result = calculatePnl(effectiveTrade);
-    const image = await renderPnl(templatePath, { ...effectiveTrade, ...result });
+    const result = calculatePnl({
+      ...trade,
+      margin: trade.margin ?? (defaultMargin > 0 ? defaultMargin : undefined),
+    });
 
+    const image = await renderPnl(templatePath, { ...trade, ...result });
     await ctx.replyWithPhoto(
       { source: image },
       {
-        caption: [
-          `✅ ${effectiveTrade.coin} ${effectiveTrade.side}`,
-          `Leverage: ${effectiveTrade.leverage}x`,
-          `Entry: ${effectiveTrade.entry}`,
-          `Last: ${effectiveTrade.last}`,
-          `Margin: $${effectiveTrade.margin}`,
-          `PNL: ${formatPercent(result.pnlPercent)}`,
-          `Amount: ${formatMoney(result.pnlAmount)}`,
-        ].join('\n'),
+        caption:
+          `✅ ${trade.coin} ${trade.side}\n` +
+          `Leverage: ${trade.leverage}x\n` +
+          `Entry: ${trade.entry}\n` +
+          `Last/Mark: ${trade.last}\n` +
+          `Size: ${result.size.toFixed(2)} USDT\n` +
+          `Margin: ${result.margin.toFixed(4)} USDT\n` +
+          `Margin Ratio: ${result.marginRatio.toFixed(2)}%\n` +
+          `ROE: ${formatPercent(result.pnlPercent)}\n` +
+          `Unrealized PNL: ${formatMoney(result.pnlAmount)}`,
       },
     );
   } catch (error: any) {
-    await ctx.reply(`❌ ${error.message}\n\n${helpText}`);
+    await ctx.reply(
+      `❌ ${error.message}\n\n` +
+      'Format:\n' +
+      '/edit COIN LONG|SHORT LEVERAGE ENTRY LAST [MARGIN]\n\n' +
+      'Example:\n' +
+      '/edit USELESSUSDT LONG 10x 0.22662 0.24887 395.9037'
+    );
   }
 });
 
-bot.catch((error) => console.error('Telegram bot error:', error));
+bot.command('help', (ctx) => ctx.reply(
+  'Commands:\n\n' +
+  '/edit COIN LONG|SHORT LEVERAGE ENTRY LAST [MARGIN]\n\n' +
+  'Margin is optional. Without it, the bot selects a random margin from $100 to $500.\n' +
+  'The bot automatically calculates ROE, unrealized PNL, leveraged USDT size, and a margin ratio below 1%.\n\n' +
+  'Labeled format is also supported:\n' +
+  'Coin: USELESSUSDT\n' +
+  'Side: LONG\n' +
+  'Leverage: 10x\n' +
+  'Entry: 0.22662\n' +
+  'Last: 0.24887\n' +
+  'Margin: 500'
+));
+
 bot.launch();
 console.log('PNL bot running');
 
