@@ -16,17 +16,18 @@ const fields = {
   last: { x: 600, y: 645, size: 40 },
 };
 
-// These areas remove every original dynamic value before new text is drawn.
-const cleanupAreas = [
-  { x: 45, y: 55, width: 430, height: 90, fill: '#07111c' },
-  { x: 680, y: 55, width: 245, height: 90, fill: '#07111c' },
-  { x: 45, y: 225, width: 635, height: 125, fill: '#07111c' },
-  { x: 925, y: 265, width: 470, height: 95, fill: '#071d1d' },
-  { x: 45, y: 470, width: 320, height: 80, fill: '#07111c' },
-  { x: 575, y: 470, width: 375, height: 80, fill: '#07111c' },
-  { x: 1125, y: 470, width: 365, height: 80, fill: '#07111c' },
-  { x: 45, y: 600, width: 320, height: 80, fill: '#07111c' },
-  { x: 575, y: 600, width: 375, height: 80, fill: '#07111c' },
+// Blur only the original dynamic-value areas. This preserves the original
+// background gradients and prevents old numbers from showing underneath.
+const eraseAreas = [
+  { left: 45, top: 55, width: 430, height: 90 },
+  { left: 680, top: 55, width: 245, height: 90 },
+  { left: 45, top: 225, width: 635, height: 125 },
+  { left: 925, top: 265, width: 470, height: 95 },
+  { left: 45, top: 470, width: 320, height: 80 },
+  { left: 575, top: 470, width: 375, height: 80 },
+  { left: 1125, top: 470, width: 365, height: 80 },
+  { left: 45, top: 600, width: 320, height: 80 },
+  { left: 575, top: 600, width: 375, height: 80 },
 ];
 
 export async function renderPnl(templatePath: string, data: any) {
@@ -35,19 +36,27 @@ export async function renderPnl(templatePath: string, data: any) {
   const pnlColor = positive ? '#00e5a0' : '#ff5577';
   const pnlSign = positive ? '+' : '-';
 
-  const cleanupSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    ${cleanupAreas.map((area) => `<rect x="${area.x}" y="${area.y}" width="${area.width}" height="${area.height}" fill="${area.fill}" />`).join('')}
-  </svg>`;
+  const image = sharp(base);
+  const eraseLayers = [];
 
-  const cleaned = await sharp(base)
-    .composite([{ input: Buffer.from(cleanupSvg), top: 0, left: 0 }])
+  for (const area of eraseAreas) {
+    const patch = await sharp(base)
+      .extract(area)
+      .blur(18)
+      .png()
+      .toBuffer();
+    eraseLayers.push({ input: patch, left: area.left, top: area.top });
+  }
+
+  const cleaned = await image
+    .composite(eraseLayers)
     .png()
     .toBuffer();
 
   const svg = `<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
     <style>
-      .white { font-family: Arial, sans-serif; font-weight: 700; fill: #f5f7ff; }
-      .pnl { font-family: Arial, sans-serif; font-weight: 700; fill: ${pnlColor}; }
+      .white { font-family: sans-serif; font-weight: 700; fill: #f5f7ff; }
+      .pnl { font-family: sans-serif; font-weight: 700; fill: ${pnlColor}; }
     </style>
     <text class="white" x="${fields.coin.x}" y="${fields.coin.y}" font-size="${fields.coin.size}">${escape(String(data.coin))}</text>
     <text class="white" x="${fields.leverage.x}" y="${fields.leverage.y}" font-size="${fields.leverage.size}">Cross ${escape(String(data.leverage))}X</text>
