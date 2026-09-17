@@ -16,9 +16,10 @@ const fields = {
   last: { x: 600, y: 645, size: 40 },
 };
 
-// Opaque cleanup areas remove the original sample values before new text is drawn.
-// These colors match the dark background of the supplied template.
+// These areas remove every original dynamic value before new text is drawn.
 const cleanupAreas = [
+  { x: 45, y: 55, width: 430, height: 90, fill: '#07111c' },
+  { x: 680, y: 55, width: 245, height: 90, fill: '#07111c' },
   { x: 45, y: 225, width: 635, height: 125, fill: '#07111c' },
   { x: 925, y: 265, width: 470, height: 95, fill: '#071d1d' },
   { x: 45, y: 470, width: 320, height: 80, fill: '#07111c' },
