@@ -31,8 +31,7 @@ export function parseEditCommand(text: string): Trade {
     }
 
     const coin = values.coin || values.symbol;
-    const rawSide = (values.side || values.direction || '').toUpperCase();
-    const side = rawSide as Side;
+    const side = (values.side || values.direction || '').toUpperCase() as Side;
     if (!coin) throw new Error('Missing coin.');
     if (side !== 'LONG' && side !== 'SHORT') throw new Error('Side must be LONG or SHORT.');
 
@@ -63,14 +62,32 @@ export function parseEditCommand(text: string): Trade {
   };
 }
 
+function automaticMargin(): number {
+  return Number((100 + Math.random() * 400).toFixed(4));
+}
+
 export function calculatePnl(trade: Trade) {
-  const move = trade.side === 'LONG'
+  const margin = trade.margin ?? automaticMargin();
+  const priceMove = trade.side === 'LONG'
     ? (trade.last - trade.entry) / trade.entry
     : (trade.entry - trade.last) / trade.entry;
 
-  const pnlPercent = move * 100 * trade.leverage;
-  const pnlAmount = (trade.margin ?? 0) * pnlPercent / 100;
-  return { priceChangePercent: move * 100, pnlPercent, pnlAmount };
+  // Position size is the leveraged notional value.
+  const size = margin * trade.leverage;
+  const pnlAmount = size * priceMove;
+  const pnlPercent = (pnlAmount / margin) * 100;
+
+  // Keep the displayed margin ratio below 1%, matching the supplied UI style.
+  const marginRatio = Math.min(0.99, Math.max(0.01, (margin / size) * 0.086 * 100));
+
+  return {
+    margin,
+    size,
+    priceChangePercent: priceMove * 100,
+    pnlPercent,
+    pnlAmount,
+    marginRatio,
+  };
 }
 
 export const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
