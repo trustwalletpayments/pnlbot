@@ -4,7 +4,6 @@ import fs from 'node:fs/promises';
 const WIDTH = 1536;
 const HEIGHT = 1024;
 
-// Coordinates match the supplied 1536x1024 screenshot.
 const fields = {
   coin: { x: 80, y: 113, size: 54 },
   leverage: { x: 752, y: 113, size: 40 },
@@ -18,7 +17,7 @@ const fields = {
 };
 
 const valueRegions = [
-  [45, 225, 590, 345],
+  [45, 225, 635, 345],
   [925, 265, 1460, 350],
   [45, 470, 350, 545],
   [575, 470, 950, 545],
@@ -33,16 +32,19 @@ export async function renderPnl(templatePath: string, data: any) {
   const pnlColor = positive ? '#00e5a0' : '#ff5577';
   const pnlSign = positive ? '+' : '-';
 
-  // Blur only the old numeric-value regions, then place the new text over them.
-  // This avoids duplicate numbers and avoids visible rectangular mask blocks.
   const maskSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
     <rect width="${WIDTH}" height="${HEIGHT}" fill="black" />
     ${valueRegions.map(([x1, y1, x2, y2]) => `<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" fill="white" />`).join('')}
   </svg>`;
 
+  const mask = await sharp(Buffer.from(maskSvg)).png().toBuffer();
   const blurred = await sharp(base).blur(18).png().toBuffer();
+  const blurredMasked = await sharp(blurred)
+    .composite([{ input: mask, blend: 'dest-in' }])
+    .png()
+    .toBuffer();
   const cleaned = await sharp(base)
-    .composite([{ input: blurred, blend: 'over', mask: Buffer.from(maskSvg) }])
+    .composite([{ input: blurredMasked, blend: 'over' }])
     .png()
     .toBuffer();
 
