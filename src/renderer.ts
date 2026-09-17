@@ -1,7 +1,10 @@
 import sharp from 'sharp';
 import fs from 'node:fs/promises';
 
-// Coordinates are aligned to the supplied 1536x1024 screenshot.
+const WIDTH = 1536;
+const HEIGHT = 1024;
+
+// Coordinates for the supplied 1536x1024 screenshot.
 const fields = {
   coin: { x: 80, y: 113, size: 54 },
   leverage: { x: 752, y: 113, size: 40 },
@@ -17,22 +20,22 @@ const fields = {
 export async function renderPnl(templatePath: string, data: any) {
   const base = await fs.readFile(templatePath);
 
-  // The template already contains example values. These patches remove only
-  // the old numeric values while leaving the labels and layout untouched.
-  const svg = `<svg width="1536" height="1024" xmlns="http://www.w3.org/2000/svg">
+  // Opaque masks remove every old numeric value first. This prevents the
+  // original sample numbers from showing through or appearing twice.
+  const svg = `<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
     <style>
-      .white { font-family: Arial, sans-serif; font-weight: 700; fill: #f5f7ff; }
-      .green { font-family: Arial, sans-serif; font-weight: 700; fill: #00e5a0; }
+      .white { font-family: Arial, Helvetica, sans-serif; font-weight: 700; fill: #f5f7ff; }
+      .green { font-family: Arial, Helvetica, sans-serif; font-weight: 700; fill: #00e5a0; }
     </style>
 
     <g fill="#06101b">
-      <rect x="45" y="235" width="555" height="105" rx="8" />
-      <rect x="940" y="265" width="310" height="75" rx="8" />
-      <rect x="45" y="468" width="300" height="65" rx="5" />
-      <rect x="585" y="468" width="300" height="65" rx="5" />
-      <rect x="1140" y="468" width="300" height="65" rx="5" />
-      <rect x="45" y="602" width="300" height="65" rx="5" />
-      <rect x="585" y="602" width="300" height="65" rx="5" />
+      <rect x="45" y="230" width="570" height="115" rx="10" />
+      <rect x="925" y="260" width="370" height="90" rx="10" />
+      <rect x="45" y="465" width="390" height="75" rx="8" />
+      <rect x="575" y="465" width="390" height="75" rx="8" />
+      <rect x="1125" y="465" width="365" height="75" rx="8" />
+      <rect x="45" y="595" width="390" height="75" rx="8" />
+      <rect x="575" y="595" width="390" height="75" rx="8" />
     </g>
 
     <text class="white" x="${fields.coin.x}" y="${fields.coin.y}" font-size="${fields.coin.size}">${escape(String(data.coin))}</text>
@@ -47,7 +50,7 @@ export async function renderPnl(templatePath: string, data: any) {
   </svg>`;
 
   return sharp(base)
-    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0, blend: 'over' }])
     .png()
     .toBuffer();
 }
