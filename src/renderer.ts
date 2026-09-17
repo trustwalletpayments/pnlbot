@@ -2,9 +2,8 @@ import sharp from 'sharp';
 import fs from 'node:fs/promises';
 
 // Coordinates are aligned to the supplied 1536x1024 screenshot.
-// Upload the screenshot to assets/pnl-template.png.
 const fields = {
-  coin: { x: 175, y: 113, size: 54 },
+  coin: { x: 80, y: 113, size: 54 },
   leverage: { x: 752, y: 113, size: 40 },
   pnlAmount: { x: 61, y: 316, size: 96 },
   pnlPercent: { x: 955, y: 316, size: 66 },
@@ -17,11 +16,25 @@ const fields = {
 
 export async function renderPnl(templatePath: string, data: any) {
   const base = await fs.readFile(templatePath);
+
+  // The template already contains example values. These patches remove only
+  // the old numeric values while leaving the labels and layout untouched.
   const svg = `<svg width="1536" height="1024" xmlns="http://www.w3.org/2000/svg">
     <style>
       .white { font-family: Arial, sans-serif; font-weight: 700; fill: #f5f7ff; }
       .green { font-family: Arial, sans-serif; font-weight: 700; fill: #00e5a0; }
     </style>
+
+    <g fill="#06101b">
+      <rect x="45" y="235" width="555" height="105" rx="8" />
+      <rect x="940" y="265" width="310" height="75" rx="8" />
+      <rect x="45" y="468" width="300" height="65" rx="5" />
+      <rect x="585" y="468" width="300" height="65" rx="5" />
+      <rect x="1140" y="468" width="300" height="65" rx="5" />
+      <rect x="45" y="602" width="300" height="65" rx="5" />
+      <rect x="585" y="602" width="300" height="65" rx="5" />
+    </g>
+
     <text class="white" x="${fields.coin.x}" y="${fields.coin.y}" font-size="${fields.coin.size}">${escape(String(data.coin))}</text>
     <text class="white" x="${fields.leverage.x}" y="${fields.leverage.y}" font-size="${fields.leverage.size}">Cross ${escape(String(data.leverage))}X</text>
     <text class="green" x="${fields.pnlAmount.x}" y="${fields.pnlAmount.y}" font-size="${fields.pnlAmount.size}">${data.pnlAmount >= 0 ? '+' : '-'}${Math.abs(data.pnlAmount).toFixed(4)}</text>
