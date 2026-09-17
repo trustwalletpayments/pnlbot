@@ -55,7 +55,7 @@ bot.command('help', (ctx) => ctx.reply(
   'Commands:\n\n' +
   '/edit COIN LONG|SHORT LEVERAGE ENTRY LAST [MARGIN]\n\n' +
   'Margin is optional. Without it, the bot selects a margin from $100 to $500.\n' +
-  'The bot calculates ROE, unrealized PNL, position size, and margin ratio below 1%.\n\n' +
+  'The bot calculates ROE, unrealized PNL, position size, and margin ratio.\n\n' +
   'Labeled format is also supported:\n' +
   'Coin: USELESSUSDT\n' +
   'Side: LONG\n' +
@@ -70,8 +70,28 @@ bot.catch((error, ctx) => {
   return ctx.reply('Something went wrong while generating the screenshot. Please try again.');
 });
 
-bot.launch();
-console.log('Public PNL bot running');
+async function launchWithRetry() {
+  while (true) {
+    try {
+      await bot.launch();
+      console.log('Public PNL bot running');
+      return;
+    } catch (error: any) {
+      const description = String(error?.response?.description ?? error?.message ?? error);
+      if (description.includes('terminated by other getUpdates request') || error?.response?.error_code === 409) {
+        console.error('Another bot instance is using this token. Retrying in 15 seconds...');
+        await new Promise((resolve) => setTimeout(resolve, 15000));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+void launchWithRetry().catch((error) => {
+  console.error('Fatal bot error:', error);
+  process.exit(1);
+});
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
